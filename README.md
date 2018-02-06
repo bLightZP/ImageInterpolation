@@ -7,13 +7,13 @@ https://imaginglib.sourceforge.net
 Modified for simplicity and usage with TBitmap VCL/FMX classes by Yaron Gur
 
 # Supported sampling filters:
-Nearest neighbor
-Linear
-Cosine
-Hermite
-Quadratic
-Gaussian
-Spline
-Lanczos
-Mitchell
-CatmullRom
+Nearest neighbor<br>
+Linear<br>
+Cosine<br>
+Hermite<br>
+Quadratic<br>
+Gaussian<br>
+Spline<br>
+Lanczos<br>
+Mitchell<br>
+CatmullRom<br>
