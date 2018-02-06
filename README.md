@@ -1,5 +1,5 @@
 # ImageInterpolation
-High quality, pure pascal image interpolation (resizing/scaling) using TBitmap (VCL/FMX)
+High quality, multi-platform pascal image interpolation (resizing/scaling) using TBitmap (VCL/FMX)
 
 # Supported sampling filters:
 Nearest neighbor<br>
