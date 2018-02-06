@@ -19,12 +19,12 @@ I was having a very hard time finding image scaling (resizing) code that is free
 I ended up modifying the code to make it simpler to use with both the VCL and FMX versions of TBitmap.
 
 # Usage:
-StretchResample(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth,SrcHeight: LongInt; var DstImage: TBitmap; DstX, DstY, DstWidth,  DstHeight: LongInt; Filter: TSamplingFilter; WrapEdges: Boolean = False); overload;
+<b>StretchResample</b>(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth,SrcHeight: LongInt; var DstImage: TBitmap; DstX, DstY, DstWidth,  DstHeight: LongInt; Filter: TSamplingFilter; WrapEdges: Boolean = False); overload;
 
 # Example of resizing an image 50% :
 ResizedImage.Width  := SourceImage.Width div 2;<br>
 ResizedImage.Height := SourceImage.Height div 2;<br>
-StretchResample(SourceBitmap,0,0, MySourceBitmap.Width, MySourceBitmap.Height,ResizedBitmap,0,0,ResizedBitmap.Width,ResizedBitmap, sfLanczos,False);
+<b>StretchResample</b>(SourceBitmap,0,0, MySourceBitmap.Width, MySourceBitmap.Height,ResizedBitmap,0,0,ResizedBitmap.Width,ResizedBitmap, sfLanczos,False);
 
 # Notes:
 For simplicity, I only supported 32bit (R/G/B/A) bitmap.<br>
