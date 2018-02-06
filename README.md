@@ -18,7 +18,7 @@ I was having a very hard time finding a high quality image scaling that is free 
 
 # Notes:
 For simplicity, I only supported 32bit (R/G/B/A) bitmap.<br>
-The code is pure pascal, no low-level CPU-specific optimizations.
+The code is pure pascal, there are no low level CPU-specific optimizations.
 
 # Credits:
 Based on the Vampyre Imaging Library by Marek Mauder<br>
