@@ -3,7 +3,7 @@ High quality, multi-platform pascal image interpolation (resizing/scaling) using
 
 # Supported sampling filters:
 Nearest neighbor<br>
-Linear<br>
+Bilinear<br>
 Cosine<br>
 Hermite<br>
 Quadratic<br>
@@ -11,7 +11,7 @@ Gaussian<br>
 Spline<br>
 Lanczos<br>
 Mitchell<br>
-CatmullRom<br>
+CatmullRom (bicubic)<br>
 
 # Introduction
 I was having a very hard time finding image scaling (resizing) code that is free to use, simple to integrate and high in quality.  I finally managed to find usable code in mark mauder's vampyre imaging library, but it was wrapped in a lot of code that overly complicated the specific use function I needed.
