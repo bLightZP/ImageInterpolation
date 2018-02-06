@@ -22,8 +22,8 @@ I ended up modifying the code to make it simpler to use with both the VCL and FM
 StretchResample(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth,SrcHeight: LongInt; var DstImage: TBitmap; DstX, DstY, DstWidth,  DstHeight: LongInt; Filter: TSamplingFilter; WrapEdges: Boolean = False); overload;
 
 # Example of resizing an image 50% :
-ResizedImage.Width  := SourceImage.Width div 2;
-ResizedImage.Height := SourceImage.Height div 2;
+ResizedImage.Width  := SourceImage.Width div 2;<br>
+ResizedImage.Height := SourceImage.Height div 2;<br>
 StretchResample(SourceBitmap,0,0, MySourceBitmap.Width, MySourceBitmap.Height,ResizedBitmap,0,0,ResizedBitmap.Width,ResizedBitmap, sfLanczos,False);
 
 # Notes:
