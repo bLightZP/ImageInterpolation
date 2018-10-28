@@ -37,7 +37,7 @@ unit resizeimageunit;
 interface
 
 uses
-  SysUtils, {$IFDEF USE_FMX_BITMAP}FMX.Graphics,FMX.Types{$ELSE}Graphics{$ENDIF};
+  System.Types, SysUtils, {$IFDEF USE_FMX_BITMAP}FMX.Graphics,FMX.Types{$ELSE}Graphics{$ENDIF}, optimizedscanlineunit, system.uitypes;
 
 type
   { Built-in sampling filters.}
@@ -86,8 +86,12 @@ var
   Filter is used. Set WrapEdges to True for seamlessly tileable images.
   SrcImage and DstImage must be in the same data format.
   Works for all data formats except special and indexed formats.}
-procedure StretchResample(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth,
-  SrcHeight: LongInt; var DstImage: TBitmap; DstX, DstY, DstWidth,
+procedure StretchResampleFloat(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth,
+  SrcHeight: LongInt; DstImage: TBitmap; DstX, DstY, DstWidth,
+  DstHeight: LongInt; Filter: TSamplingFilter; WrapEdges: Boolean = False); overload;
+
+procedure StretchResampleInteger(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth,
+  SrcHeight: LongInt; DstImage: TBitmap; DstX, DstY, DstWidth,
   DstHeight: LongInt; Filter: TSamplingFilter; WrapEdges: Boolean = False); overload;
 
   { Stretches rectangle in source image to rectangle in destination image
@@ -95,10 +99,21 @@ procedure StretchResample(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth,
   Set WrapEdges to True for seamlessly tileable images. SrcImage and DstImage
   must be in the same data format.
   Works for all data formats except special and indexed formats.}
-procedure StretchResample(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth,
-  SrcHeight: LongInt; var DstImage: TBitmap; DstX, DstY, DstWidth,
+procedure StretchResampleFloat(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth,
+  SrcHeight: LongInt; DstImage: TBitmap; DstX, DstY, DstWidth,
+  DstHeight: LongInt; Filter: TFilterFunction; Radius: Double;
+  WrapEdges: Boolean = False); overload;
+
+procedure MapFloatStretchResample(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth, SrcHeight: LongInt; DstImage: TBitmap; DstX, DstY, DstWidth, DstHeight: LongInt; MapX, MapY : TMappingTable; Filter: TFilterFunction; Radius: Double; WrapEdges: Boolean);
+
+procedure StretchResampleInteger(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth,
+  SrcHeight: LongInt; DstImage: TBitmap; DstX, DstY, DstWidth,
   DstHeight: LongInt; Filter: TFilterFunction; Radius: Single;
   WrapEdges: Boolean = False); overload;
+
+procedure MapIntegerStretchResample(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth, SrcHeight: LongInt; DstImage: TBitmap; DstX, DstY, DstWidth, DstHeight: LongInt; MapX, MapY : TMappingTable; Filter: TFilterFunction; Radius: Double; WrapEdges: Boolean);
+
+procedure StretchResampleNative(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth, SrcHeight: LongInt; DstImage: TBitmap; DstX, DstY, DstWidth, DstHeight: LongInt; scrScale : Single);
 
 { Helper function for resampling.}
 function BuildMappingTable(DstLow, DstHigh, SrcLow, SrcHigh, SrcImageWidth: LongInt; Filter: TFilterFunction; Radius: Single; WrapEdges: Boolean): TMappingTable;
@@ -114,7 +129,7 @@ function ClampInt(Number: LongInt; Min, Max: LongInt): LongInt; {$IFDEF USE_INLI
 
 implementation
 
-uses math;
+uses math, misc_functions, system.uiconsts;
 
 var
   FullEdge: Boolean = True;
@@ -436,74 +451,292 @@ begin
 end;
 
 
-procedure CopyPixel(Src, Dest: Pointer; BytesPerPixel: LongInt);
-begin
-  case BytesPerPixel of
-    1: PByte(Dest)^ := PByte(Src)^;
-    2: PWord(Dest)^ := PWord(Src)^;
-    //3: PColor24Rec(Dest)^ := PColor24Rec(Src)^;
-    4: PLongWord(Dest)^ := PLongWord(Src)^;
-    //6: PColor48Rec(Dest)^ := PColor48Rec(Src)^;
-    8: PInt64(Dest)^ := PInt64(Src)^;
-    //16: PColorFPRec(Dest)^ := PColorFPRec(Src)^;
-  end;
-end;
-
-
-procedure StretchResample(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth, SrcHeight: LongInt; var DstImage: TBitmap; DstX, DstY, DstWidth, DstHeight: LongInt;
-                          Filter: TSamplingFilter; WrapEdges: Boolean = False);
+procedure StretchResampleInteger(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth, SrcHeight: LongInt; DstImage: TBitmap; DstX, DstY, DstWidth, DstHeight: LongInt; Filter: TSamplingFilter; WrapEdges: Boolean = False); overload;
 begin
   // Calls the other function with filter function and radius defined by Filter
-  StretchResample(SrcImage, SrcX, SrcY, SrcWidth, SrcHeight, DstImage, DstX, DstY,
+  StretchResampleInteger(SrcImage, SrcX, SrcY, SrcWidth, SrcHeight, DstImage, DstX, DstY,
+    DstWidth, DstHeight, SamplingFilterFunctions[Filter], SamplingFilterRadii[Filter],
+    WrapEdges);
+end;
+
+procedure StretchResampleFloat(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth, SrcHeight: LongInt; DstImage: TBitmap; DstX, DstY, DstWidth, DstHeight: LongInt; Filter: TSamplingFilter; WrapEdges: Boolean = False);
+begin
+  // Calls the other function with filter function and radius defined by Filter
+  StretchResampleFloat(SrcImage, SrcX, SrcY, SrcWidth, SrcHeight, DstImage, DstX, DstY,
     DstWidth, DstHeight, SamplingFilterFunctions[Filter], SamplingFilterRadii[Filter],
     WrapEdges);
 end;
 
 
-procedure StretchResample(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth, SrcHeight: LongInt; var DstImage: TBitmap; DstX, DstY, DstWidth, DstHeight: LongInt;
-                          Filter: TFilterFunction; Radius: Single; WrapEdges: Boolean);
-const
-  Channel8BitMax: Single = 255.0;
+procedure StretchResampleNative(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth, SrcHeight: LongInt; DstImage: TBitmap; DstX, DstY, DstWidth, DstHeight: LongInt; scrScale : Single);
+begin
+  DstImage.Canvas.BeginScene;
+  DstImage.Canvas.Clear(0);
+  DstImage.Canvas.DrawBitmap(
+    SrcImage,
+    //RectF(Trunc(SrcX),Trunc(SrcY),Trunc((SrcX+SrcWidth)),Trunc((SrcY+SrcHeight))),
+    RectF(Trunc(SrcX*scrScale),Trunc(SrcY*scrScale),Trunc((SrcX+SrcWidth)*scrScale),Trunc((SrcY+SrcHeight)*scrScale)),
+    RectF(Trunc(DstX/scrScale),Trunc(DstY/scrScale),Trunc((DstX+DstWidth)/scrScale),Trunc((dstY+DstHeight)/scrScale)),
+    1,False);
+  DstImage.Canvas.EndScene;
+end;
+
+
+procedure StretchResampleInteger(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth, SrcHeight: LongInt; DstImage: TBitmap; DstX, DstY, DstWidth, DstHeight: LongInt; Filter: TFilterFunction; Radius: Single; WrapEdges: Boolean); overload;
+var
+  MapX, MapY : TMappingTable;
+begin
+  If (SrcImage.Width < 2) or (SrcImage.Height < 2) or (DstImage.Width < 2) or (DstImage.Height < 2) then Exit;
+
+  // Create horizontal and vertical mapping tables
+  MapX := BuildMappingTable(DstX, DstX + DstWidth , SrcX, SrcX + SrcWidth , SrcImage.Width , Filter, Radius, WrapEdges);
+  MapY := BuildMappingTable(DstY, DstY + DstHeight, SrcY, SrcY + SrcHeight, SrcImage.Height, Filter, Radius, WrapEdges);
+
+  MapIntegerStretchResample(SrcImage,SrcX,SrcY,SrcWidth,SrcHeight,DstImage,DstX,DstY,DstWidth,DstHeight,MapX,MapY,Filter,Radius,WrapEdges);
+
+  MapX := nil;
+  MapY := nil;
+end;
+
+
+procedure MapIntegerStretchResample(const SrcImage: TBitmap;
+                                          SrcX, SrcY, SrcWidth, SrcHeight: LongInt;
+                                          DstImage: TBitmap;
+                                          DstX, DstY, DstWidth, DstHeight: LongInt;
+                                          MapX, MapY : TMappingTable;
+                                          Filter: TFilterFunction;
+                                          Radius: Double;
+                                          WrapEdges: Boolean);
+
 type
   TBufferItem = record
     A, R, G, B: Integer;
   end;
 var
-  MapX, MapY                                  : TMappingTable;
   I, J, X, Y                                  : LongInt;
   XMinimum, XMaximum                          : LongInt;
   LineBufferInt                               : array of TBufferItem;
   ClusterX, ClusterY                          : TCluster;
-  Weight, AccumA, AccumR, AccumG, AccumB      : Single;
   IWeight, IAccumA, IAccumR, IAccumG, IAccumB : Integer;
   SrcColor                                    : TColor32Rec;
   //BytesPerChannel                             : LongInt;
-  ChannelValueMax, InvChannelValueMax         : Single;
+  //ChannelValueMax, InvChannelValueMax         : Single;
+
+  bitmapData                                  : FMX.Graphics.TBitmapData;
+  tmpScanLine                                 : Pointer;
+  srcScanLines                                : Array[0..8191] of PByteArray;
+  dstScanLines                                : Array[0..8191] of PByteArray;
+  InMemoryScale                               : Boolean;
+
+begin
+  If (SrcImage.Width < 2) or (SrcImage.Height < 2) or (DstImage.Width < 2) or (DstImage.Height < 2) then Exit;
+
+  if (MapX = nil) or (MapY = nil) then Exit;
+
+  ClusterX := nil;
+  ClusterY := nil;
+
+  InMemoryScale := (SrcImage.PixelFormat = TPixelFormat.BGRA) or (SrcImage.PixelFormat = TPixelFormat.RGBA);
+  //InMemoryScale := False;
+
+  // Convert image to TAlphaColor format
+  If SrcImage.Map(TMapAccess.Read, bitmapData) then
+  try
+    If InMemoryScale = True then
+    Begin
+      For Y := 0 to SrcImage.Height-1 do
+      Begin
+        srcScanLines[Y] := bitmapData.GetScanline(Y);
+      End;
+    End
+      else
+    Begin
+      For Y := 0 to SrcImage.Height-1 do
+      Begin
+        tmpScanLine := bitmapData.GetScanline(Y);
+        GetMem(srcScanLines[Y],SrcImage.Width*4);
+        OptimizedScanlineToAlphaColor(tmpScanLine,@srcScanLines[Y][0],SrcImage.Width,SrcImage.PixelFormat);
+      End;
+    End;
+  finally
+    If DstImage.Map(TMapAccess.Write, bitmapData) then
+    try
+      If InMemoryScale = True then
+      Begin
+        For Y := 0 to DstImage.Height-1 do
+        Begin
+          dstScanLines[Y] := bitmapData.GetScanline(Y);
+        End;
+      End
+        else
+      Begin
+        // Convert TAlphaColor format back to Image format
+        For Y := 0 to DstImage.Height-1 do
+        Begin
+          tmpScanLine := bitmapData.GetScanline(Y);
+          GetMem(dstScanLines[Y],DstImage.Width*4);
+          OptimizedAlphaColorToScanLine(@dstScanLines[Y][0],tmpScanLine,DstImage.Width,DstImage.PixelFormat);
+        End;
+      End;
+
+      try
+        // Find min and max X coords of pixels that will contribute to target image
+        FindExtremes(MapX, XMinimum, XMaximum);
+
+        SetLength(LineBufferInt, XMaximum - XMinimum + 1);
+
+        // Following code is optimized for images with 8 bit channels
+        for J := 0 to DstHeight-1 do
+        begin
+          ClusterY := MapY[J];
+          for X := XMinimum to XMaximum do
+          begin
+            IAccumA := 0;
+            IAccumR := 0;
+            IAccumG := 0;
+            IAccumB := 0;
+            for Y := 0 to Length(ClusterY) - 1 do
+            begin
+              //IWeight := Round(256 * ClusterY[Y].Weight);
+              IWeight := Round(255 * ClusterY[Y].Weight);
+
+              With TAlphaColorRec(PAlphaColor(@srcScanLines[ClusterY[Y].Pos]^[X shl 2])^) do
+              Begin
+                Inc(IAccumB,B * IWeight);
+                Inc(IAccumG,G * IWeight);
+                Inc(IAccumR,R * IWeight);
+                Inc(IAccumA,A * IWeight);
+              End;
+            end;
+            with LineBufferInt[X - XMinimum] do
+            begin
+              A := IAccumA;
+              R := IAccumR;
+              G := IAccumG;
+              B := IAccumB;
+            end;
+          end;
+
+          for I := 0 to DstWidth - 1 do
+          begin
+            ClusterX := MapX[I];
+            IAccumA  := 0;
+            IAccumR  := 0;
+            IAccumG  := 0;
+            IAccumB  := 0;
+            for X := 0 to Length(ClusterX) - 1 do
+            begin
+              //IWeight := Round(256 * ClusterX[X].Weight);
+              IWeight := Round(255 * ClusterX[X].Weight);
+              with LineBufferInt[ClusterX[X].Pos - XMinimum] do
+              begin
+                Inc(IAccumB,B * IWeight);
+                Inc(IAccumG,G * IWeight);
+                Inc(IAccumR,R * IWeight);
+                Inc(IAccumA,A * IWeight);
+              end;
+            end;
+
+            If IAccumB < 0 then IAccumB := 0 else If IAccumB > $00FF0000 then IAccumB := $00FF0000;
+            If IAccumG < 0 then IAccumG := 0 else If IAccumG > $00FF0000 then IAccumG := $00FF0000;
+            If IAccumR < 0 then IAccumR := 0 else If IAccumR > $00FF0000 then IAccumR := $00FF0000;
+            If IAccumA < 0 then IAccumA := 0 else If IAccumA > $00FF0000 then IAccumA := $00FF0000;
+
+            With TAlphaColorRec(PAlphaColor(@dstScanLines[J]^[(I+DstX) shl 2])^) do
+            Begin
+              B := IAccumB shr 16;
+              G := IAccumG shr 16;
+              R := IAccumR shr 16;
+              A := IAccumA shr 16;
+            End;
+          end;
+        end;
+      finally
+        // Cleanup
+        If InMemoryScale = True then
+        Begin
+          for Y := 0 to SrcImage.Height-1 do srcScanLines[Y] := nil;
+          for Y := 0 to DstImage.Height-1 do dstScanLines[Y] := nil;
+        End
+          else
+        Begin
+          for Y := 0 to SrcImage.Height-1 do FreeMem(srcScanLines[Y]);
+          for Y := 0 to DstImage.Height-1 do FreeMem(dstScanLines[Y]);
+        End
+
+        //SrcImage.SaveToFile('d:\x\@test_src.bmp');
+        //DstImage.SaveToFile('d:\x\@test_dst.bmp');
+      end;
+    finally
+      DstImage.Unmap(bitmapData);
+    end;
+    SrcImage.Unmap(bitmapData);
+  end;
+end;
+
+
+procedure StretchResampleFloat(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth, SrcHeight: LongInt; DstImage: TBitmap; DstX, DstY, DstWidth, DstHeight: LongInt; Filter: TFilterFunction; Radius: Double; WrapEdges: Boolean);
+var
+  MapX, MapY : TMappingTable;
+begin
+  If (SrcImage.Width < 2) or (SrcImage.Height < 2) or (DstImage.Width < 2) or (DstImage.Height < 2) then Exit;
+
+  // Create horizontal and vertical mapping tables
+  MapX := BuildMappingTable(DstX, DstX + DstWidth , SrcX, SrcX + SrcWidth , SrcImage.Width , Filter, Radius, WrapEdges);
+  MapY := BuildMappingTable(DstY, DstY + DstHeight, SrcY, SrcY + SrcHeight, SrcImage.Height, Filter, Radius, WrapEdges);
+
+  if (MapX = nil) or (MapY = nil) then Exit;
+
+  MapFloatStretchResample(SrcImage,SrcX,SrcY,SrcWidth,SrcHeight,DstImage,DstX,DstY,DstWidth,DstHeight,MapX,MapY,Filter,Radius,WrapEdges);
+
+  MapX := nil;
+  MapY := nil;
+end;
+
+
+procedure MapFloatStretchResample(const SrcImage: TBitmap; SrcX, SrcY, SrcWidth, SrcHeight: LongInt; DstImage: TBitmap; DstX, DstY, DstWidth, DstHeight: LongInt; MapX, MapY : TMappingTable; Filter: TFilterFunction; Radius: Double; WrapEdges: Boolean);
+type
+  TBufferItem = record
+    A, R, G, B: Double;
+  end;
+var
+  I, J, X, Y                                  : LongInt;
+  XMinimum, XMaximum                          : LongInt;
+  LineBufferFloat                             : array of TBufferItem;
+  ClusterX, ClusterY                          : TCluster;
+  dWeight, dAccumA, dAccumR, dAccumG, dAccumB : Double;
+  SrcColor                                    : TColor32Rec;
   Speed1                                      : Integer;
 
   {$IFDEF USE_FMX_BITMAP}
   bitmapData                                  : FMX.Graphics.TBitmapData;
   tmpScanLine                                 : Pointer;
   {$ENDIF}
-  srcScanLines                                : Array[0..4095] of PByteArray;
-  dstScanLines                                : Array[0..4095] of PByteArray;
+  srcScanLines                                : Array[0..8191] of PByteArray;
+  dstScanLines                                : Array[0..8191] of PByteArray;
+
+{function PremultiplyAlpha32(const C: TColor32Rec): TColor32Rec;
+begin
+  if C.A = 0 then
+    Integer(Result) := 0
+  else if C.A = $FF then
+    Result := C
+  else
+  begin
+    Result.R := trunc(C.R * (C.A / $FF));
+    Result.G := trunc(C.G * (C.A / $FF));
+    Result.B := trunc(C.B * (C.A / $FF));
+    Result.A := C.A;
+  end;
+end;}
 
 begin
   If (SrcImage.Width < 2) or (SrcImage.Height < 2) or (DstImage.Width < 2) or (DstImage.Height < 2) then Exit;
 
-  //BytesPerChannel := 1; // 8bit/channel
-
-
-  // Create horizontal and vertical mapping tables
-  MapX := BuildMappingTable(DstX, DstX + DstWidth , SrcX, SrcX + SrcWidth , SrcImage.Width , Filter, Radius, WrapEdges);
-  MapY := BuildMappingTable(DstY, DstY + DstHeight, SrcY, SrcY + SrcHeight, SrcImage.Height, Filter, Radius, WrapEdges);
-
-  if (MapX = nil) or (MapY = nil) then
-    Exit;
+  if (MapX = nil) or (MapY = nil) then Exit;
 
   ClusterX := nil;
   ClusterY := nil;
-
   {$IFNDEF USE_FMX_BITMAP}
   // Get scanline pointers
   If SrcImage.PixelFormat <> pf32bit then SrcImage.PixelFormat := pf32bit;
@@ -518,7 +751,9 @@ begin
     Begin
       tmpScanLine := bitmapData.GetScanline(Y);
       GetMem(srcScanLines[Y],SrcImage.Width*4);
-      ScanlineToAlphaColor(tmpScanLine,@srcScanLines[Y][0],SrcImage.Width,SrcImage.PixelFormat);
+      OptimizedScanlineToAlphaColor(tmpScanLine,@srcScanLines[Y][0],SrcImage.Width,SrcImage.PixelFormat);
+      {For X := 0 to SrcImage.Width-1 do
+         srcScanLines[Y][X*4] := premultiplyAlpha(srcScanLines[Y][X*4]);}
     End;
   finally
     SrcImage.Unmap(bitmapData);
@@ -530,7 +765,7 @@ begin
     // Find min and max X coords of pixels that will contribute to target image
     FindExtremes(MapX, XMinimum, XMaximum);
 
-    SetLength(LineBufferInt, XMaximum - XMinimum + 1);
+    SetLength(LineBufferFloat, XMaximum - XMinimum + 1);
 
     // Following code is optimized for images with 8 bit channels
     for J := 0 to DstHeight - 1 do
@@ -538,55 +773,57 @@ begin
       ClusterY := MapY[J];
       for X := XMinimum to XMaximum do
       begin
-        IAccumA := 0;
-        IAccumR := 0;
-        IAccumG := 0;
-        IAccumB := 0;
+        dAccumA := 0;
+        dAccumR := 0;
+        dAccumG := 0;
+        dAccumB := 0;
         for Y := 0 to Length(ClusterY) - 1 do
         begin
-          IWeight := Round(256 * ClusterY[Y].Weight);
+          dWeight := 256 * ClusterY[Y].Weight;
+          //dWeight := 255 * ClusterY[Y].Weight;
           Speed1  := X*4;
 
-          IAccumB := IAccumB + srcScanLines[ClusterY[Y].Pos][Speed1  ] * IWeight;
-          IAccumG := IAccumG + srcScanLines[ClusterY[Y].Pos][Speed1+1] * IWeight;
-          IAccumR := IAccumR + srcScanLines[ClusterY[Y].Pos][Speed1+2] * IWeight;
-          IAccumA := IAccumA + srcScanLines[ClusterY[Y].Pos][Speed1+3] * IWeight;
+          dAccumB := dAccumB + (srcScanLines[ClusterY[Y].Pos][Speed1  ] * dWeight);
+          dAccumG := dAccumG + (srcScanLines[ClusterY[Y].Pos][Speed1+1] * dWeight);
+          dAccumR := dAccumR + (srcScanLines[ClusterY[Y].Pos][Speed1+2] * dWeight);
+          dAccumA := dAccumA + (srcScanLines[ClusterY[Y].Pos][Speed1+3] * dWeight);
         end;
-        with LineBufferInt[X - XMinimum] do
+        with LineBufferFloat[X - XMinimum] do
         begin
-          A := IAccumA;
-          R := IAccumR;
-          G := IAccumG;
-          B := IAccumB;
+          A := dAccumA;
+          R := dAccumR;
+          G := dAccumG;
+          B := dAccumB;
         end;
       end;
 
-      //DstLine := @PByteArray(DstImage.Bits)[((J + DstY) * DstImage.Width + DstX)* Info.BytesPerPixel];
       for I := 0 to DstWidth - 1 do
       begin
         ClusterX := MapX[I];
-        IAccumA := 0;
-        IAccumR := 0;
-        IAccumG := 0;
-        IAccumB := 0;
+        dAccumA  := 0;
+        dAccumR  := 0;
+        dAccumG  := 0;
+        dAccumB  := 0;
         for X := 0 to Length(ClusterX) - 1 do
         begin
-          IWeight := Round(256 * ClusterX[X].Weight);
-          with LineBufferInt[ClusterX[X].Pos - XMinimum] do
+          //dWeight := 256 * ClusterX[X].Weight;
+          dWeight := 255 * ClusterX[X].Weight;
+          with LineBufferFloat[ClusterX[X].Pos - XMinimum] do
           begin
-            IAccumB := IAccumB + B * IWeight;
-            IAccumG := IAccumG + G * IWeight;
-            IAccumR := IAccumR + R * IWeight;
-            IAccumA := IAccumA + A * IWeight;
+            dAccumB := dAccumB + (B * dWeight);
+            dAccumG := dAccumG + (G * dWeight);
+            dAccumR := dAccumR + (R * dWeight);
+            dAccumA := dAccumA + (A * dWeight);
           end;
         end;
 
-        SrcColor.B := ClampInt(IAccumB, 0, $00FF0000) shr 16;
-        SrcColor.G := ClampInt(IAccumG, 0, $00FF0000) shr 16;
-        SrcColor.R := ClampInt(IAccumR, 0, $00FF0000) shr 16;
-        SrcColor.A := ClampInt(IAccumA, 0, $00FF0000) shr 16;
+        SrcColor.B := ClampInt(Round(dAccumB), 0, $00FF0000) shr 16;
+        SrcColor.G := ClampInt(Round(dAccumG), 0, $00FF0000) shr 16;
+        SrcColor.R := ClampInt(Round(dAccumR), 0, $00FF0000) shr 16;
+        SrcColor.A := ClampInt(Round(dAccumA), 0, $00FF0000) shr 16;
 
         PLongWord(@dstScanLines[J]^[(I+DstX)*4])^ := PLongWord(@SrcColor)^;
+        //PLongWord(@dstScanLines[J]^[(I+DstX)*4])^ := Cardinal(PremultiplyAlpha32(SrcColor));
       end;
     end;
   finally
@@ -598,7 +835,9 @@ begin
       For Y := 0 to DstImage.Height-1 do
       Begin
         tmpScanLine := bitmapData.GetScanline(Y);
-        AlphaColorToScanLine(@dstScanLines[Y][0],tmpScanLine,DstImage.Width,DstImage.PixelFormat);
+        {For X := 0 to DstImage.Width-1 do
+          dstScanLines[Y][X*4] := PreMultiplyAlpha(dstScanLines[Y][X*4]);}
+        OptimizedAlphaColorToScanLine(@dstScanLines[Y][0],tmpScanLine,DstImage.Width,DstImage.PixelFormat);
       End;
     finally
       DstImage.Unmap(bitmapData);
@@ -608,11 +847,8 @@ begin
     for Y := 0 to DstImage.Height-1 do FreeMem(dstScanLines[Y]);
     {$ENDIF}
 
-    SrcImage.SaveToFile('d:\x\@test_src.bmp');
-    DstImage.SaveToFile('d:\x\@test_dst.bmp');
-
-    MapX := nil;
-    MapY := nil;
+    //SrcImage.SaveToFile('d:\x\@test_src.bmp');
+    //DstImage.SaveToFile('d:\x\@test_dst.bmp');
   end;
 end;
 
